@@ -17,7 +17,7 @@
  *      Authors:
  *
  */
- 
+
 #include "frosted.h"
 #include <string.h>
 #include "bflt.h"
@@ -26,13 +26,17 @@
 #include "vfs.h"
 #define GDB_PATH "frosted-userland/gdb/"
 
-static struct fnode *xipfs;
 static struct module mod_xipfs;
 
 struct xipfs_fnode {
     struct fnode *fnode;
     void (*init)(void *);
 };
+
+struct xipfs_mount_info {
+    uint8_t *source_ptr;
+    char *target_path;
+}
 
 
 
@@ -154,7 +158,7 @@ static int xip_add(const char *name, const void (*init), uint32_t size)
     return 0;
 }
 
-static int xipfs_parse_blob(const uint8_t *blob)
+static int xipfs_parse_blob(const uint8_t *blob, const char *path)
 {
     const struct xipfs_fat *fat = (const struct xipfs_fat *)blob;
     const struct xipfs_fhdr *f;
@@ -162,15 +166,33 @@ static int xipfs_parse_blob(const uint8_t *blob)
     if (!fat || fat->fs_magic != XIPFS_MAGIC)
         return -1;
 
+    char *full_path = NULL;
+    if (path) {
+        size_t len_root = strlen();
+        size_t len_path = strlen(path);
+        full_path = kalloc(sizeof(char)*
+    }
     offset = sizeof(struct xipfs_fat);
     for (i = 0; i < fat->fs_files; i++) {
         f = (const struct xipfs_fhdr *) (blob + offset);
         if (f->magic != XIPFS_MAGIC)
             return -1;
-        xip_add(f->name, f->payload, f->len);
+        if (path) {
+            if (strncmp(f->name, path, strlen(path)+1) == 0) {
+                xip_add(f->name, f->payload, f->len);
+                return 0;
+            }
+        } else {
+            xip_add(f->name, f->payload, f->len);
+        }
         offset += f->len + sizeof(struct xipfs_fhdr);
     }
     return 0;
+}
+
+static void xipfs_lookup(const char *path)
+{
+    xipfs_parse_blob((uint8_t *)mod_xipfs.private, path);
 }
 
 static int xipfs_mount(char *source, char *tgt, uint32_t flags, void *arg)
@@ -192,8 +214,12 @@ static int xipfs_mount(char *source, char *tgt, uint32_t flags, void *arg)
     }
 
     tgt_dir->owner = &mod_xipfs;
-    if (xipfs_parse_blob((uint8_t *)source) < 0)
-        return -1;
+    /* cache the value for later */
+    size_t tgt_len = strlen(tgt->fname);
+    mod_xipfs.private = (struct xipfs_mount_info *)kalloc(sizeof(xipfs_mount_info));
+    mod_xipfs.private->target_path = (char *) kalloc(sizeof(char)*tgt_len+1);
+    mod_xipfs.private->source_ptr = source;
+    strncpy(mod_xipfs.private->target_path, tgt->fname, tgt_len+1);
 
     return 0;
 }
@@ -212,6 +238,7 @@ void xipfs_init(void)
     mod_xipfs.ops.unlink = xipfs_unlink;
     mod_xipfs.ops.close = xipfs_close;
     mod_xipfs.ops.exe = xipfs_exe;
+    mod_xipfs.ops.lookup = xipfs_lookup;
 
     mod_xipfs.ops.block_read = xipfs_block_read;
     register_module(&mod_xipfs);

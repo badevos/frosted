@@ -277,7 +277,7 @@ static int path_check(const char *path, const char *dirname)
 
 static struct fnode *_fno_search(const char *path, struct fnode *dir, int follow)
 {
-    struct fnode *cur;
+    struct fnode *fno;
     char link[MAX_FILE];
     int check = 0;
     if (dir == NULL)
@@ -309,7 +309,13 @@ static struct fnode *_fno_search(const char *path, struct fnode *dir, int follow
         strcat( link, path_walk(path));
         return _fno_search( link, &FNO_ROOT, follow );
     }
-    return _fno_search(path_walk(path), dir->children, follow);
+    fno = _fno_search(path_walk(path), dir->children, follow);
+    /* load on demand */
+    if (!fno && dir->owner && dir->owner->ops.lookup) {
+        dir->owner->ops.lookup(path);
+        fno = _fno_search(path_walk(path), dir->children, follow);
+    }
+    return fno;
 }
 
 struct fnode *fno_search(const char *_path)

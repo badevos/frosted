@@ -107,6 +107,11 @@ static inline uint32_t ARCH_GPIO_BASE(int x)
 # define LED1 "gpio_1_14"
 # define LED2 "gpio_1_15"
 # define LED3 "gpio_1_4"
+#elif defined (STM32P405)
+# define LED0 "gpio_3_12"
+# define LED1 ""
+# define LED2 ""
+# define LED3 ""
 #elif defined (STM32F7)
 # define LED0 "gpio_9_1"
 # define LED1 ""

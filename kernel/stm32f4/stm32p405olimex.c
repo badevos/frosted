@@ -448,9 +448,7 @@ int machine_init(void)
     rcc_clock_setup_hse_3v3(&rcc_hse_8mhz_3v3[STM32_CLOCK]);
 
     /* Leds */
-    for (i = 0; i < 4; i++) {
-        gpio_create(NULL, &Led[i]);
-    }
+    gpio_create(NULL, &Led[0]);
 
     /* Button */
     gpio_create(NULL, &Button);
